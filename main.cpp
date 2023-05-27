@@ -1,177 +1,195 @@
-#include <iostream>
-#include <stack>
-#include <string>
-#include <sstream>
-#include <vector>
-using namespace std;
+
 #include <cmath>
+#include <unordered_set>
+#include <set>
+#include <iostream>
+#include <unordered_map>
+#include <vector>
+#include <algorithm>
+#include <string>
+#include <fstream>
 
-// Helper function to check if a character is an operator
-bool isOperator(char c) {
-	return (c == '+' || c == '*');
-}
-bool isOperator(const char* c) {
-	return (*c == '+' ||  *c == '*');
-}
+void print(std::unordered_set<int> const& set)
+{
+	auto itr = set.begin();
+	std::cout << '[';
 
-// Helper function to perform an operation
-int performOperation(char op, int op1, int op2) {
-	if (op == '+') {
-		return op1 + op2;
-	}
-	else if (op == '*') {
-		return op1 * op2;
-	}
-	else {
-		return 0;
-	}
+	if (itr != set.end())
+	{
+		std::cout << *itr;
 
-
-//This result file is for determening the value of a string expression. the  isbigger attribute is for when
-//a operand is larger than N. This way we no longer have to add any more alphabets to this string anymore
-struct result {
-	bool isbigger;
-	int val;
-	result (bool isbigger , int val): isbigger(isbigger),val(val){}
-};
-
-//gets a line and holds N , alphabet, and the length of the alphabet not containing + or *
-struct expresssionComponents {
-public:
-	int N;
-	int len;
-	vector<string> alphabets;
-	expresssionComponents(const std::string& line) {
-		char delimiter = ' ';
-		std::stringstream ss(line);
-		string temp;
-		std::getline(ss, temp, delimiter);
-		this->len = stoi(temp);
-		for (int i = 0; i < this->len; i++) {
-			std::getline(ss, temp, delimiter);
-			alphabets.push_back(temp);
+		while (++itr != set.end())
+		{
+			std::cout << ',' << *itr ;
 		}
-		alphabets.push_back("+");
-		alphabets.push_back("*");
-		std::getline(ss, temp, delimiter);
-		this->N = stoi(temp);
 	}
-};
+	std::cout << ']' << '\n';
+}
 
-// Function to evaluate a string expression
-result	evaluateExpression(string expression, int N) {
-	bool isbigger;
-	stack<int> values;
-	stack<char> operators;
-	for (int i = 0; i < expression.length(); i++) {
-		// If the current character is a whitespace, skip it
-		if (expression[i] == ' ') {
-			continue;
+
+void printStringsByInt(const std::unordered_map<int, std::unordered_set<std::string>>& myMap) {
+	for (const auto& entry : myMap) {
+		int key = entry.first;
+		const std::unordered_set<std::string>& strings = entry.second;
+
+		std::cout << key << "=" << std::endl;
+		for (const std::string& str : strings) {
+			std::cout << "\t" << str << std::endl;
 		}
-		// If the current character is a digit, convert it to an integer and push it onto the values stack
-		else if (isdigit(expression[i])) {
-			int val = 0;
-			while (i < expression.length() && isdigit(expression[i])) {
-				val = (val * 10) + (expression[i] - '0');
-				i++;
+		std::cout << std::endl;
+	}
+}
+
+bool containsOnlyDigits(int value, const std::unordered_set<int>& digitsSet) {
+	while (value > 0) {
+		int digit = value % 10;
+		if (digitsSet.find(digit) == digitsSet.end()) {
+			return false;
+		}
+		value /= 10;
+	}
+	return true;
+}
+
+std::string getShortestString(const std::unordered_set<std::string>& mySet, int target ) {
+	std::string shortestString;
+	bool firstString = true;
+
+	for (const std::string& str : mySet) {
+		if (firstString || str.length() < shortestString.length() && std::stoi(str)!= target) {
+			shortestString = str;
+			firstString = false;
+		}
+	}
+
+	return shortestString;
+}
+
+std::unordered_map<int, std::unordered_set<std::string>> expressions;
+bool get_path(std::unordered_set<int> set, int target)
+{
+	std::unordered_set<int> alphabet = set;
+	for (const auto& element : set)
+		expressions[element].insert(std::to_string(element));
+	while (set.find(target) == set.end())
+	{
+		std::size_t initialSize = set.size();
+		std::unordered_set<int > newset = set;
+		int result;
+		std::string temp;
+
+		// concatination
+		for (auto itr1 = set.begin(); itr1 != set.end(); ++itr1)
+		{
+			for (auto itr2 = set.begin(); itr2 != set.end(); ++itr2)
+			{
+				if (containsOnlyDigits(*itr2, alphabet))
+					if (containsOnlyDigits(*itr1, alphabet)) {
+						result = (*itr2 != 0)
+							? *itr1 * pow(10, (int)log10(*itr2) + 1) + *itr2
+							: *itr1 * 10;
+						if (result <= target) {
+							newset.insert(result);
+							expressions[result].insert(std::to_string(result));
+						}
+					}
 			}
-			if (val > N)
-				return {true,val };
-			i--;
-			values.push(val);
 		}
-		// If the current character is an operator, push it onto the operators stack
-		else if (isOperator(expression[i])) {
-			while (!operators.empty() && (expression[i] != '+') && (operators.top() == '*')) {
-				int op2 = values.top();
-				values.pop();
-				int op1 = values.top();
-				values.pop();
-				char op = operators.top();
-				operators.pop();
-				int val = performOperation(op, op1, op2);
-				values.push(val);
-			}
-			operators.push(expression[i]);
-		}
-	}
-	// Evaluate the remaining operators in the operators stack
-	while (!operators.empty()) {
-		if (values.size() == 1 && operators.size() == 1)
-			return { false,0 };
-		if (operators.size() > values.size())	
-			return {true,0};
-		int op2 = values.top();
-		values.pop();
-		int op1 = values.top();
-		values.pop();
-		char op = operators.top();
-		operators.pop();
-		int val = performOperation(op, op1, op2);
-		values.push(val);
-	}
-
-	// The final result is the only value left in the values stack
-	if (values.top() > N)
-		return { true, values.top() };
-	return { false,values.top() };
-}
-
-//int main(int argc, char* argv[]) {
-int main() {
-	string filename("input.txt");
-	ofstream myfile;
-	myfile.open(string("output.txt"));
-	std::ifstream input_file(filename);
-	std::string line;
-	int fileLen = 0;
-	if (std::getline(input_file, line))
-		 fileLen = std::stoi(line);
-	else {
-		std::cout << "couldn't read file";
-		return -1;
-	}
-	for (int k = 0; k < fileLen; k++) {
-		std::getline(input_file, line);
-		expresssionComponents EC(line);
-		vector<string> expressions({});
-		for (int i = 0;i < EC.len; i++)
-			expressions.push_back(EC.alphabets[i]);
-		bool flag = true;// when founded a candidate we no longer need to search for the rest of the vector 
-		string finalResult = "";
-		int len;
-		while (!expressions.empty() && flag) {
-			len = expressions.size();
-			for (int i = 0; i < len && !expressions.empty(); i++) {
-				result  res = evaluateExpression(expressions[i], EC.N);
-				std::cout << EC.N << " != " << expressions[i] << " == " << res.val<<endl;
-				if (res.isbigger){// the usage of isbiger attribute in the result struct
-					expressions.erase(expressions.begin());
-					i--;
+		// addition
+		for (auto itr1 = set.begin(); itr1 != set.end(); ++itr1)
+		{
+			for (auto itr2 = itr1; itr2 != set.end(); ++itr2)
+			{
+				if (*itr2 == 0 || *itr1 == 0)
 					continue;
+				result = *itr1 + *itr2;
+				if (result <= target)
+				{
+					temp = getShortestString(expressions[*itr1], target) + "+" + getShortestString(expressions[*itr2], target);
+					newset.insert(result);
+					expressions[result].insert(temp);
 				}
-				if (res.val == EC.N) {
-					finalResult = expressions[i];
-					flag = false;
-					break;
-				}
-				for (string alphabet : EC.alphabets) {
-					if (isOperator(*(expressions[i].end()-1)) && isOperator(alphabet.c_str()))//if the end of the string is already an operator, another operator is not needed
-						continue;
-					expressions.push_back(expressions[i] + alphabet);
-				}
-				expressions.erase(expressions.begin());
-				i--;
 			}
 		}
-		if (flag)
-			myfile << "N" << "\n";
-		else {
-			myfile << finalResult.size() << " ";
-			myfile << finalResult<< "\n";
-		}				
+
+		// multiplication
+		for (auto itr1 = set.begin(); itr1 != set.end(); ++itr1)
+		{
+			for (auto itr2 = itr1; itr2 != set.end(); ++itr2)
+			{
+				if (*itr2 == 1 || *itr1 == 1)
+					continue;
+				std::string lefPart = getShortestString(expressions[*itr1], target);
+				if (lefPart.find('+') != std::string::npos)
+					continue;
+				std::string righPart = getShortestString(expressions[*itr2], target);
+				if (righPart.find('+') != std::string::npos)
+					continue;
+				result = *itr1 * *itr2;
+				if (result <= target) {
+					temp = lefPart + "*" + righPart;
+					newset.insert(result);
+					expressions[result].insert(temp);
+				}
+			}
+		}
+
+		if (initialSize == newset.size())
+			return false;
+		set = newset;
 	}
-	myfile.close();
-	input_file.close();
+		// print the final set of numbers
+		//print(set);
+		return true ;
+}
+
+
+int main() {
+	expressions.clear();
+	int  target = 10000;
+	std::string answer = get_path(std::unordered_set<int>{1,0}, target) ? getShortestString(expressions[target], target) : "N";
+	std::cout << answer;
+	//if (argc < 3) {
+	//	cout << "Usage: ./shortest_expression input_file output_file\n";
+	//	return 1;
+	//}
+
+	//string inputFile = argv[1];
+	//string outputFile = argv[2];
+	std::string inputFile = "input.txt";
+	std::string outputFile = "output.txt";
+	std::ifstream input(inputFile);
+	std::ofstream output(outputFile);
+
+	if (!input.is_open()) {
+		std::cout << "Failed to open input file.\n";
+		return 1;
+	}
+
+	if (!output.is_open()) {
+		std::cout << "Failed to open output file.\n";
+		return 1;
+	}
+
+	int datasets;
+	input >> datasets;
+
+	for (int i = 0; i < datasets; i++) {
+		int k, n,temp;
+		input >> k;
+		std::unordered_set<int> digits;
+
+		for (int j = 0; j < k; j++) {
+			input >> temp;
+			digits.insert(temp);
+		}
+		input >> n;
+		expressions.clear();
+		std::string answer = get_path(digits , n) ? getShortestString(expressions[n], n) : "N";
+		output << answer.length() << " " << answer << "\n";
+	}
+
+	input.close();
+	output.close();
 	return 0;
-} 
+}
